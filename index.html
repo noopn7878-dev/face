@@ -2587,7 +2587,9 @@ function renderCloudCasesList(rows){
     const title=r.name||r.code||r.id;
     return '<div class="cloud-list-item" data-id="'+r.id+'">'
       +'<div><b>'+(title||'بدون اسم')+'</b><small>'+(r.code?('كود: '+r.code+' • '):'')+'آخر تحديث: '+when+(r.updatedBy?(' • بواسطة: '+r.updatedBy):'')+'</small></div>'
-      +'<span>📂</span></div>';
+      +'<div style="display:flex;align-items:center;gap:10px">'
+      +'<button type="button" class="cloud-item-del" data-id="'+r.id+'" title="حذف الحالة من السحابة" style="background:linear-gradient(135deg,#b71c1c,#e53935);color:#fff;border:none;border-radius:8px;padding:6px 10px;cursor:pointer;font-size:13px">🗑️</button>'
+      +'<span>📂</span></div></div>';
   }).join('');
 }
 
@@ -2628,6 +2630,23 @@ async function openCloudCase(id){
   }finally{hideLoading();}
 }
 
+
+async function deleteCloudCase(id){
+  if(!window.__cloudReady||!window.__db){
+    showStatus('⚠️ السحابة غير مُفعّلة بعد','linear-gradient(135deg,#b71c1c,#e53935)');
+    return;
+  }
+  if(!confirm('هل أنت متأكد من حذف هذه الحالة نهائيًا من السحابة؟ لا يمكن التراجع عن هذا الإجراء.'))return;
+  showLoading();
+  try{
+    await window.__db.collection('cases').doc(id).delete();
+    if(cloudCaseId===id)cloudCaseId=null;
+    showStatus('🗑️ تم حذف الحالة من السحابة بنجاح');
+    listCloudCases();
+  }catch(e){
+    showStatus('❌ خطأ في الحذف: '+e.message,'linear-gradient(135deg,#b71c1c,#e53935)');
+  }finally{hideLoading();}
+}
 
 function newForm(){
   if(!confirm('هل تريد إنشاء نموذج جديد؟ سيتم مسح البيانات الحالية.'))return;
@@ -2821,6 +2840,8 @@ function bindAll(){
   bind('btnCloseCloudList','click',()=>closeModal('cloudCasesModal'));
   bind('btnCloseCloudList2','click',()=>closeModal('cloudCasesModal'));
   gid('cloudCasesBody')?.addEventListener('click',ev=>{
+    const delBtn=ev.target.closest&&ev.target.closest('.cloud-item-del');
+    if(delBtn){ev.stopPropagation();deleteCloudCase(delBtn.getAttribute('data-id'));return;}
     const item=ev.target.closest&&ev.target.closest('.cloud-list-item');
     if(item)openCloudCase(item.getAttribute('data-id'));
   });
@@ -3020,58 +3041,6 @@ window.addEventListener('beforeunload',e=>{
     refreshAll();
   });
 })();
-</script>
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
-<script>
-const firebaseConfig = {
-  apiKey: "AIzaSyCBRIJXeMvfx-kD4zVV_BRvUBX4KbmcCXk",
-  authDomain: "face-90934.firebaseapp.com",
-  projectId: "face-90934",
-  storageBucket: "face-90934.firebasestorage.app",
-  messagingSenderId: "1010968565390",
-  appId: "1:1010968565390:web:9581551bc0c37e52c85bdf",
-  databaseURL: "https://face-90934-default-rtdb.firebaseio.com"
-};
-firebase.initializeApp(firebaseConfig);
-const db = firebase.database();
-
-function loadCloudData(username) {
-  if(!username) return;
-  db.ref('FACE_System/' + username).once('value').then(snap => {
-    const data = snap.val();
-    if(data) {
-      Object.keys(data).forEach(k => localStorage.setItem(k, data[k]));
-      setTimeout(() => location.reload(), 400);
-    }
-  }).catch(err => alert("خطأ في السحابة: " + err.message));
-}
-
-function saveCloudData(username) {
-  if(!username) return;
-  db.ref('FACE_System/' + username).set({...localStorage}).then(() => {
-    let m = document.createElement('div');
-    m.innerText = '☁️ تم الحفظ على السحابة بنجاح!';
-    m.style.cssText = 'position:fixed;top:80px;left:50%;transform:translateX(-50%);background:#2e7d32;color:#fff;padding:10px 25px;border-radius:20px;z-index:999999;font-weight:bold;font-family:Tahoma;box-shadow:0 4px 15px rgba(0,0,0,0.3);';
-    document.body.appendChild(m);
-    setTimeout(() => m.remove(), 3000);
-  }).catch(err => alert("خطأ في الحفظ: " + err.message));
-}
-
-document.addEventListener('DOMContentLoaded', () => {
-  document.getElementById('btnLogin').addEventListener('click', () => {
-    setTimeout(() => {
-      let u = document.getElementById('loginUsername').value;
-      if(u) loadCloudData(u);
-    }, 1000);
-  });
-
-  let s1 = document.getElementById('btn-save');
-  if(s1) s1.addEventListener('click', () => { setTimeout(() => { let u = document.getElementById('loginUsername').value; if(u) saveCloudData(u); }, 1500); });
-
-  let s2 = document.getElementById('btn-saveas');
-  if(s2) s2.addEventListener('click', () => { setTimeout(() => { let u = document.getElementById('loginUsername').value; if(u) saveCloudData(u); }, 1500); });
-});
 </script>
 </body>
 </html>
